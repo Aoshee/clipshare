@@ -61,7 +61,6 @@ func main() {
 	go clipshare_server()
 	for {
 	      // Accept the text to be copied
-	      //fmt.Scanf("%s", &text)
 	       reader := bufio.NewReader(os.Stdin)
    	       text, _ := reader.ReadString('\n')
 	      // Add which client to connect to or a register process?
