@@ -4,9 +4,14 @@ import (
        "fmt"
        "net"
        "runtime"
+       "strings"
        "encoding/gob"
-       "bufio"
+//       "bufio"
        "os"
+       "os/exec"
+//       "log"
+       "github.com/facebookgo/pidfile"
+	
 )
 
 
@@ -54,18 +59,46 @@ func clipshare_client(text string) {
      c.Close()
 }
 
+func get_clip_text() {
+     cmd := exec.Command("xsel", "-b", "-o")
+     //cmd.Stdin = strings.NewReader("some input")
+     //var out bytes.Buffer
+     //cmd.Stdout = &out
+     out, err := cmd.Output()
+     if err != nil {
+     	fmt.Printf("Still output error")
+     }
+     fmt.Printf("%s", out)
+}
+
 func main() {
-     	fmt.Printf("Starting clipshare...\n")
-	runtime.GOMAXPROCS(2)
-	// Start listening to receive data from other peers
-	go clipshare_server()
+     	//pid_exists, _ := pidfile.Read()
+	_, err := os.Stat("/home/chandrika/clipshare/clipshare.pid")
+	if (os.IsNotExist(err)) {
+  	    fmt.Printf("Here")
+		pidfile.SetPidfilePath("/home/chandrika/clipshare/clipshare.pid")
+		errr := pidfile.Write()
+		if( errr != nil ){
+			fmt.Printf("Error encountered %v", errr)
+	        }
+	    fmt.Printf("Starting clipshare...\n")
+	    runtime.GOMAXPROCS(2)
+	    // Start listening to receive data from other peers
+	    go clipshare_server()
+	}
+	
+	var in string
 	for {
 	      // Accept the text to be copied
-	       reader := bufio.NewReader(os.Stdin)
-   	       text, _ := reader.ReadString('\n')
-	      // Add which client to connect to or a register process?
-
+	      // reader := bufio.NewReader(os.Stdin)
+   	      // text, _ := reader.ReadString('\n')*/
+	      fmt.Scanf("%s", &in)
+	      if ( strings.Compare(in, ">>") == 0) {
+	      	 get_clip_text()
+	      }
+	      // Add which client to connect to or a register process
 	      // Client connects to the server to send text
-	      go clipshare_client(text)
+	      
+	      //go clipshare_client(text)
 	}
 }
