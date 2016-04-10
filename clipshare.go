@@ -3,7 +3,10 @@ package main
 import (
        "fmt"
        "net"
+       "runtime"
        "encoding/gob"
+       "bufio"
+       "os"
 )
 
 
@@ -21,8 +24,8 @@ func handleConnection(conn net.Conn) {
 }
 
 func clipshare_server() {
-     	fmt.Printf("In server\n")
-	ln, err := net.Listen("tcp",":8001")
+     	fmt.Printf("Listening\n")
+	ln, err := net.Listen("tcp",":8002")
 	if err != nil {
 	// handle error
 	}
@@ -37,7 +40,7 @@ func clipshare_server() {
 
 func clipshare_client(text string) {
      // change this to accept peer to send text to
-     c, err := net.Dial("tcp", "127.0.0.1:8001")
+     c, err := net.Dial("tcp", "127.0.0.1:8002")
      if err != nil {
      	fmt.Println(err)
      return
@@ -53,13 +56,14 @@ func clipshare_client(text string) {
 
 func main() {
      	fmt.Printf("Starting clipshare...\n")
-	// Start the server so that others can send data to this node
+	runtime.GOMAXPROCS(2)
+	// Start listening to receive data from other peers
 	go clipshare_server()
-	var text string
 	for {
 	      // Accept the text to be copied
-	      fmt.Scanf("%s", &text)
-
+	      //fmt.Scanf("%s", &text)
+	       reader := bufio.NewReader(os.Stdin)
+   	       text, _ := reader.ReadString('\n')
 	      // Add which client to connect to or a register process?
 
 	      // Client connects to the server to send text
