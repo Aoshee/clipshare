@@ -14,18 +14,24 @@ import (
 	
 )
 
+var (
+	pidfile_path = "/var/run/clipshare"
+	pidfile_name = "clipshare.pid"
+)
 
 func handleConnection(conn net.Conn) {
-  // receive the message
-  var text string
-  err := gob.NewDecoder(conn).Decode(&text)
-  if err != nil {
-    fmt.Println(err)
-  } else {
-    fmt.Println("Received", text)
-    // ClipboarUpdate here 
-  }
-  conn.Close()
+	// receive the message
+	var text string
+	err := gob.NewDecoder(conn).Decode(&text)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("Received", text)
+
+		// ClipboarUpdate here 
+		set_clip_text(text)
+	}
+	conn.Close()
 }
 
 func clipshare_server() {
@@ -43,62 +49,86 @@ func clipshare_server() {
         }
 }
 
-func clipshare_client(text string) {
-     // change this to accept peer to send text to
-     c, err := net.Dial("tcp", "127.0.0.1:8002")
-     if err != nil {
-     	fmt.Println(err)
-     return
-     }
-     // send the message
-     fmt.Println("Sending", text)
-     err = gob.NewEncoder(c).Encode(text)
-     if err != nil {
-     	fmt.Println(err)
+func clipshare_client(hosts string) {
+	// Connect to peer
+	c, err := net.Dial("tcp", hosts":8002")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	// send the clip_text
+	text := get_clip_text()
+	fmt.Println("Sending", text)
+	err = gob.NewEncoder(c).Encode(text)
+	if err != nil {
+		fmt.Println(err)
   	}
-     c.Close()
+	// close connection
+	c.Close()
 }
 
-func get_clip_text() {
-     cmd := exec.Command("xsel", "-b", "-o")
-     //cmd.Stdin = strings.NewReader("some input")
-     //var out bytes.Buffer
-     //cmd.Stdout = &out
-     out, err := cmd.Output()
-     if err != nil {
-     	fmt.Printf("Still output error")
-     }
-     fmt.Printf("%s", out)
+func set_clip_text(text string) {
+	// Set clip text here
+}
+
+func get_clip_text() string{
+	// get clipboard data from xsel
+	cmd := exec.Command("xsel", "-b", "-o")
+	out, err := cmd.Output()
+	if err != nil {
+		fmt.Printf("Still output error")
+	}
+	fmt.Printf("%s", out)
+	return out
+}
+
+func init(){
+	fmt.Printf("Starting Clipshare...")
+
+	// Create directory for clipshare and set path
+	err_dir := Mkdir(pidfile_path)
+	pidfile.SetPidfilePath(pidfile_path)
+	err_pid := pidfile.Write()
+	if( err_pid != nil ){
+		fmt.Printf("Error encountered %v", errr)
+	}
+
+	// Listen for external connections parallely
+	runtime.GOMAXPROCS(2)
+
+	// Start listening to receive data from other peers
+	go clipshare_server()
+
+	// Listen for local messages
+	clipshare_local()
+}
+
+func clipshare_local () {
+	// set up unix socket here
+
+	// receive messgaes and get hosts
+	msg := ">> hosts"
+	hosts := get_hosts(msg)
+	
+	// send text to hosts
+	clipshare_client(text)
+}
+
+func process_running() bool {
+	// check if pidfile exists
+	_, err := os.Stat(pidfile_path)
+	if (os.IsNotExist(err)) {
+		return true
+	}else {
+		return false
+	}
 }
 
 func main() {
-     	//pid_exists, _ := pidfile.Read()
-	_, err := os.Stat("/home/chandrika/clipshare/clipshare.pid")
-	if (os.IsNotExist(err)) {
-  	    fmt.Printf("Here")
-		pidfile.SetPidfilePath("/home/chandrika/clipshare/clipshare.pid")
-		errr := pidfile.Write()
-		if( errr != nil ){
-			fmt.Printf("Error encountered %v", errr)
-	        }
-	    fmt.Printf("Starting clipshare...\n")
-	    runtime.GOMAXPROCS(2)
-	    // Start listening to receive data from other peers
-	    go clipshare_server()
+        // check if process is already running
+	if ( !process_running()) {
+		init()
 	}
 	
-	var in string
-	for {
-	      // Accept the text to be copied
-	      // reader := bufio.NewReader(os.Stdin)
-   	      // text, _ := reader.ReadString('\n')*/
-	      fmt.Scanf("%s", &in)
-	      if ( strings.Compare(in, ">>") == 0) {
-	      	 get_clip_text()
-	      }
-	      // Add which client to connect to or a register process
-	      // Client connects to the server to send text
-	      
-	      //go clipshare_client(text)
-	}
+	// if args passed, send to open socket
 }
