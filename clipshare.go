@@ -4,7 +4,7 @@ import (
        "fmt"
        "net"
        "runtime"
-	//"strings"	
+	"strings"	
 	"encoding/gob"
 	//"bufio"
        "os"
@@ -19,7 +19,7 @@ var (
 	pidfile_name = "clipshare.pid"
 )
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, clip chan <-string) {
 	// receive the message
 	var text string
 	err := gob.NewDecoder(conn).Decode(&text)
@@ -29,12 +29,12 @@ func handleConnection(conn net.Conn) {
 		fmt.Println("Received", text)
 
 		// ClipboarUpdate here 
-		set_clip_text(text)
+		clip <- text
 	}
 	conn.Close()
 }
 
-func clipshare_server() {
+func clipshare_server(clip chan <-string) {
      	fmt.Printf("Listening\n")
 	ln, err := net.Listen("tcp",":8002")
 	if err != nil {
@@ -45,15 +45,14 @@ func clipshare_server() {
 	    if err != nil {
 	    	// handle error
 	    }
-	    go handleConnection(conn)
+	    go handleConnection(conn, clip)
         }
 }
 
-func clipshare_client(hosts string) {
-	// Connect to peers
-	// for each host
-	// host = host + ":8002"
-	host := "127.0.0.1:8002"
+func clipshare_client(host string) {
+	// Connect to host
+	// todo: Add more hosts
+	host = host + ":8002"
 	c, err := net.Dial("tcp", host)
 	if err != nil {
 		fmt.Println(err)
@@ -85,6 +84,55 @@ func get_clip_text() string{
 	return string(out)
 }
 
+func handleReq(conn *net.UnixConn, clip chan<-string) {
+	var buf [1024]byte
+        n, err := conn.Read(buf[:])
+	if err != nil {
+		panic(err)
+	}
+	in := string(buf[:n])
+        fmt.Printf("%v\n", in)
+	// Check if input is to set or get
+	if(strings.compare(in, "get")) {
+	    text := <-clip
+	    fmt.Printf("Getting text %v", text)
+	} else if (strings.compare(in, "set")) {
+	    // todo: accept host here   
+	    clipshare_client("127.0.0.1")
+	}
+}
+
+func clipshare_local (clip chan<-string) {
+	// set up unix socket here
+	l, err := net.ListenUnix("unix",  &net.UnixAddr{"/tmp/clipshare_local", "unix"})
+	if err != nil {
+		panic(err)
+	}   
+	defer os.Remove("/tmp/clipshare_local")
+	for {
+		conn, err := l.AcceptUnix()
+		if err != nil {
+			panic(err)
+		}
+		go handleReq(conn, clip)
+        }
+}
+
+func connect_local_sock() {
+	raddr := net.UnixAddr{"/tmp/clipshare_local", "unix"}
+	conn, err := net.DialUnix("unix", nil, &raddr)
+	if err != nil {
+		panic(err)
+	}
+	// text:= get_clip_text()
+	// text:= "hello"
+	_, err = conn.Write([]byte(text))
+	if err != nil {
+		panic(err)
+	}   
+	conn.Close()
+}
+
 func clipshare_init(){
 	fmt.Printf("Starting Clipshare...")
 
@@ -102,52 +150,15 @@ func clipshare_init(){
 	// Listen for external connections parallely
 	runtime.GOMAXPROCS(2)
 
+	clip := make(chan string)
+	
 	// Start listening to receive data from other peers
-	go clipshare_server()
+	go clipshare_server(clip)
 
 	// Listen for local messages
-	clipshare_local()
+	clipshare_local(clip)
 }
 
-func handleReq(conn *net.UnixConn) {
-	var buf [1024]byte
-        n, err := conn.Read(buf[:])
-	if err != nil {
-		panic(err)
-	}
-        fmt.Printf("%s\n", string(buf[:n]));
-}
-
-func clipshare_local () {
-	// set up unix socket here
-	l, err := net.ListenUnix("unix",  &net.UnixAddr{"/tmp/clipshare_local", "unix"})
-	if err != nil {
-		panic(err)
-	}   
-	defer os.Remove("/tmp/clipshare_local")
-	for {
-		conn, err := l.AcceptUnix()
-		if err != nil {
-			panic(err)
-		}
-		go handleReq(conn)
-        }
-	 
-
-	/* based on the message connect to
-	 * client <- if '>>'
-	 *        send hosts to client
-	 *        client sends the clipboard contents to the hosts
-	 * server <- if '<<'
-	 *        server displays/copies the message from clipboard
-	 * receive messgaes and get hosts
-         */
-	// msg := ">> hosts"
-	//hosts := get_hosts(msg)
-	
-	// send text to hosts
-	//clipshare_client(text)
-}
 
 func process_running() bool {
 	// check if pidfile exists
@@ -163,26 +174,13 @@ func process_running() bool {
 	}
 }
 
-func connect_local_sock() {
-	raddr := net.UnixAddr{"/tmp/clipshare_local", "unix"}
-	conn, err := net.DialUnix("unix", nil, &raddr)
-	if err != nil {
-		panic(err)
-	}   
-	_, err = conn.Write([]byte("hello"))
-	if err != nil {
-		panic(err)
-	}   
-	conn.Close()
-}
-
 func main() {
         // check if process is already running
 	if ( !process_running()) {
 		time.Sleep (5)
 		clipshare_init()
+	}else {
+	     // if args passed, send to open socket
+	     connect_local_sock()
 	}
-	
-	// if args passed, send to open socket
-	connect_local_sock()
 }
