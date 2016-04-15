@@ -19,7 +19,7 @@ var (
 	pidfile_name = "clipshare.pid"
 )
 
-func handleConnection(conn net.Conn, clip chan <-string) {
+func handleConnection(conn net.Conn, clip chan string) {
 	// receive the message
 	var text string
 	err := gob.NewDecoder(conn).Decode(&text)
@@ -34,7 +34,7 @@ func handleConnection(conn net.Conn, clip chan <-string) {
 	conn.Close()
 }
 
-func clipshare_server(clip chan <-string) {
+func clipshare_server(clip chan string) {
      	fmt.Printf("Listening\n")
 	ln, err := net.Listen("tcp",":8002")
 	if err != nil {
@@ -84,7 +84,7 @@ func get_clip_text() string{
 	return string(out)
 }
 
-func handleReq(conn *net.UnixConn, clip chan<-string) {
+func handleReq(conn *net.UnixConn, clip chan string) {
 	var buf [1024]byte
         n, err := conn.Read(buf[:])
 	if err != nil {
@@ -93,16 +93,16 @@ func handleReq(conn *net.UnixConn, clip chan<-string) {
 	in := string(buf[:n])
         fmt.Printf("%v\n", in)
 	// Check if input is to set or get
-	if(strings.compare(in, "get")) {
+	if(strings.Compare(in, "get")==0) {
 	    text := <-clip
 	    fmt.Printf("Getting text %v", text)
-	} else if (strings.compare(in, "set")) {
+	} else if (strings.Compare(in, "set")==0) {
 	    // todo: accept host here   
 	    clipshare_client("127.0.0.1")
 	}
 }
 
-func clipshare_local (clip chan<-string) {
+func clipshare_local (clip chan string) {
 	// set up unix socket here
 	l, err := net.ListenUnix("unix",  &net.UnixAddr{"/tmp/clipshare_local", "unix"})
 	if err != nil {
@@ -125,7 +125,7 @@ func connect_local_sock() {
 		panic(err)
 	}
 	// text:= get_clip_text()
-	// text:= "hello"
+	 text:= "hello"
 	_, err = conn.Write([]byte(text))
 	if err != nil {
 		panic(err)
