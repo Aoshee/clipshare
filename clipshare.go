@@ -91,7 +91,7 @@ func handleReq(conn *net.UnixConn, clip chan string) {
 		panic(err)
 	}
 	in := string(buf[:n])
-        fmt.Printf("%v\n", in)
+        fmt.Printf("RECEIVED: %v\n", in)
 	// Check if input is to set or get
 	if(strings.Compare(in, "get")==0) {
 	    text := <-clip
@@ -127,7 +127,11 @@ func connect_local_sock(args []string) {
 	// text:= get_clip_text()
 	// text:= "hello"
 	//_, err = conn.Write([]byte(args))
-	_, err = conn.Write(args)
+	var string_args string 
+	for key := range args {
+		string_args = string_args + " " + args[key]
+	}
+	_, err = conn.Write([]byte(string_args))
 	if err != nil {
 		panic(err)
 	}   
