@@ -1,17 +1,17 @@
 package main
 
 import (
-       "fmt"
-       "net"
-       "runtime"
+	"fmt"
+        "net"
+        "runtime"
 	"strings"	
 	"encoding/gob"
 	//"bufio"
-       "os"
-       "os/exec"
+        "os"
+        "os/exec"
 	//"log"
 	"time"
-       "github.com/facebookgo/pidfile"
+        "github.com/facebookgo/pidfile"
 )
 
 var (
@@ -118,15 +118,16 @@ func clipshare_local (clip chan string) {
         }
 }
 
-func connect_local_sock() {
+func connect_local_sock(args []string) {
 	raddr := net.UnixAddr{"/tmp/clipshare_local", "unix"}
 	conn, err := net.DialUnix("unix", nil, &raddr)
 	if err != nil {
 		panic(err)
 	}
 	// text:= get_clip_text()
-	 text:= "hello"
-	_, err = conn.Write([]byte(text))
+	// text:= "hello"
+	//_, err = conn.Write([]byte(args))
+	_, err = conn.Write(args)
 	if err != nil {
 		panic(err)
 	}   
@@ -180,7 +181,8 @@ func main() {
 		time.Sleep (5)
 		clipshare_init()
 	}else {
-	     // if args passed, send to open socket
-	     connect_local_sock()
+		// if args passed, send to open socket
+		args := os.Args[1:]
+		connect_local_sock(args)
 	}
 }
