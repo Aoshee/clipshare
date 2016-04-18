@@ -49,24 +49,27 @@ func clipshare_server(clip chan string) {
         }
 }
 
-func clipshare_client(host string) {
+func clipshare_client(hosts []string) {
 	// Connect to host
-	// todo: Add more hosts
-	host = host + ":8002"
-	c, err := net.Dial("tcp", host)
-	if err != nil {
+	var host string
+	for key := range(hosts) {
+	    host = hosts[key] + ":8002"
+	    fmt.Printf("Connecting to host %s\n", host)
+	    c, err := net.Dial("tcp", host)
+	    if err != nil {
 		fmt.Println(err)
 		return
+	    }
+	    // send the clip_text
+	    text := get_clip_text()
+	    fmt.Println("Sending", text)
+	    err = gob.NewEncoder(c).Encode(text)
+	    if err != nil {
+	       	fmt.Println(err)
+  	    }
+	    // close connection
+	    c.Close()
 	}
-	// send the clip_text
-	text := get_clip_text()
-	fmt.Println("Sending", text)
-	err = gob.NewEncoder(c).Encode(text)
-	if err != nil {
-		fmt.Println(err)
-  	}
-	// close connection
-	c.Close()
 }
 
 func set_clip_text(text string) {
@@ -80,7 +83,7 @@ func get_clip_text() string{
 	if err != nil {
 		fmt.Printf("Still output error")
 	}
-	fmt.Printf("%s", out)
+	fmt.Printf("in get_clip_text %s", out)
 	return string(out)
 }
 
@@ -91,14 +94,19 @@ func handleReq(conn *net.UnixConn, clip chan string) {
 		panic(err)
 	}
 	in := string(buf[:n])
-        fmt.Printf("RECEIVED: %v\n", in)
 	// Check if input is to set or get
-	if(strings.Compare(in, "get")==0) {
+	input := string(in)
+	input = strings.Trim(input, " ")
+	if(strings.Contains(input, "get")) {
+	    fmt.Println("Get clip text")
 	    text := <-clip
-	    fmt.Printf("Getting text %v", text)
-	} else if (strings.Compare(in, "set")==0) {
-	    // todo: accept host here   
-	    clipshare_client("127.0.0.1")
+	    fmt.Printf("Got text %s", text)
+	} else if (strings.Contains(input, "set")) {
+	    // todo: accept host here
+	    fmt.Println("Set clip text")
+	    hosts := strings.Fields(input)
+	    fmt.Printf("sending text to hosts %v", hosts[1:])
+	    clipshare_client(hosts[1:])
 	}
 }
 
@@ -124,14 +132,12 @@ func connect_local_sock(args []string) {
 	if err != nil {
 		panic(err)
 	}
-	// text:= get_clip_text()
-	// text:= "hello"
-	//_, err = conn.Write([]byte(args))
 	var string_args string 
 	for key := range args {
 		string_args = string_args + " " + args[key]
 	}
 	_, err = conn.Write([]byte(string_args))
+
 	if err != nil {
 		panic(err)
 	}   
@@ -168,13 +174,12 @@ func clipshare_init(){
 func process_running() bool {
 	// check if pidfile exists
 	name := pidfile_path+ "/" +pidfile_name
-	fmt.Printf("PIDFILE %v", name)
 	_, err := os.Stat(name)
 	if (os.IsNotExist(err)) {
-		fmt.Printf("PIDFILE does not exist")
+		fmt.Println("PIDFILE does not exist")
 		return false
 	}else {
-		fmt.Printf("PIDFILE does exists")
+		fmt.Println("PIDFILE does exists")
 		return true
 	}
 }
@@ -186,7 +191,11 @@ func main() {
 		clipshare_init()
 	}else {
 		// if args passed, send to open socket
-		args := os.Args[1:]
-		connect_local_sock(args)
+		if len(os.Args) > 1 {
+			args := os.Args[1:]
+			connect_local_sock(args)
+		}else {
+		      fmt.Printf("Usage: clipshare get| set host(s)")
+		}
 	}
 }
