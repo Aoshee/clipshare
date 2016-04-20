@@ -6,10 +6,8 @@ import (
         "runtime"
 	"strings"	
 	"encoding/gob"
-	//"bufio"
         "os"
         "os/exec"
-	//"log"
 	"time"
         "github.com/facebookgo/pidfile"
 )
@@ -28,8 +26,10 @@ func handleConnection(conn net.Conn, clip chan string) {
 	} else {
 		fmt.Println("Received", text)
 
-		// ClipboarUpdate here 
+		// ClipboardUpdate here 
 		clip <- text
+		close(clip)
+		fmt.Println("Updated Clipboard")
 	}
 	conn.Close()
 }
@@ -63,6 +63,7 @@ func clipshare_client(hosts []string) {
 	    // send the clip_text
 	    text := get_clip_text()
 	    fmt.Println("Sending", text)
+	    fmt.Println("Calling host")
 	    err = gob.NewEncoder(c).Encode(text)
 	    if err != nil {
 	       	fmt.Println(err)
@@ -74,6 +75,19 @@ func clipshare_client(hosts []string) {
 
 func set_clip_text(text string) {
 	// Set clip text here
+	cmd := exec.Command("xsel", "-b", "-i")
+	cmd_stdin, err := cmd.StdinPipe()
+	if err!= nil {
+	   	panic(err)
+	}
+	_, err = cmd_stdin.Write([]byte(text))
+	if err!= nil {
+	   	panic(err)
+	}
+	err = cmd.Run()
+	if err != nil {
+		fmt.Printf("Still output error")
+	}
 }
 
 func get_clip_text() string{
