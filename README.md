@@ -5,13 +5,19 @@ A clipboard sharing tool written in Go.
 ## Usage
 
 ### Start the tool
-  ```clipshare```
+```
+clipshare
+```
 
 ### Get contents of clipshare buffer (received from other peers)
-  ```clipshare get```
+```
+clipshare get
+```
 
 ### Send clipboard contents to other peers
-  ```clipshare set 127.0.0.1 10.0.2.1```
+```
+clipshare set 127.0.0.1 10.0.2.1
+```
 
 
 ###Todo
