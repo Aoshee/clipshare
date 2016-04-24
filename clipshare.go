@@ -90,18 +90,22 @@ func set_clip_text(text string) {
 	cmd_stdin, err := cmd.StdinPipe()
 	if err!= nil {
 	   	panic(err)
+		return
 	}
 	_, err = cmd_stdin.Write([]byte(text))
 	if err!= nil {
 	   	panic(err)
+		return
 	}
 	err = cmd.Start()
 	if err != nil {
 	       panic(err)
+	       return
 	}
 	err = cmd.Wait()
 	if err != nil {
 	       panic(err)
+	       return
 	}
 }
 
@@ -124,6 +128,7 @@ func handleReq(conn *net.UnixConn, clip chan string) {
         n, err := conn.Read(buf[:])
 	if err != nil {
 		panic(err)
+		return
 	}
 	in := string(buf[:n])
 	// Check if input is to set or get
@@ -143,6 +148,9 @@ func handleReq(conn *net.UnixConn, clip chan string) {
 	    clipshare_client(hosts[1:])
 	} else if strings.Contains(input, "stop") {
 	    clipshare_destroy()
+	} else {
+	    fmt.Println("Invalid argument")
+	    return
 	}
 }
 
@@ -152,12 +160,14 @@ func clipshare_local (clip chan string) {
 	l, err := net.ListenUnix("unix",  &net.UnixAddr{unix_sock, "unix"})
 	if err != nil {
 		panic(err)
+		return
 	}   
 	defer os.Remove(unix_sock)
 	for {
 		conn, err := l.AcceptUnix()
 		if err != nil {
 			panic(err)
+			return
 		}
 		go handleReq(conn, clip)
         }
@@ -169,6 +179,7 @@ func connect_local_sock(args []string) {
 	conn, err := net.DialUnix("unix", nil, &raddr)
 	if err != nil {
 		panic(err)
+		return
 	}
 	var string_args string 
 	for key := range args {
@@ -178,6 +189,7 @@ func connect_local_sock(args []string) {
 
 	if err != nil {
 		panic(err)
+		return
 	}   
 	conn.Close()
 }
@@ -206,25 +218,26 @@ func clipshare_destroy(){
 	       panic(err)
 	       return
   	}
-
-  	pid_str := string(bs)
+	
+	pid_str := string(bs)
 	pid, err := strconv.ParseInt(pid_str, 10, 64)
   	fmt.Println("pid:", pid)
 	
-	// kill process
-	err = syscall.Kill(int(pid), 15)
-	if err != nil {
-	       panic(err)
-	       return
-  	}
 	// remove pid file
-	err = os.Remove(pidfile)
+	err = os.RemoveAll(pidfile_path)
 	if err != nil {
 	       panic(err)
 	       return
         }
 	// remove unix socket
 	err = os.Remove(unix_sock)
+	if err != nil {
+	       panic(err)
+	       return
+  	}
+	
+	// kill process
+	err = syscall.Kill(int(pid), 15)
 	if err != nil {
 	       panic(err)
 	       return
@@ -239,11 +252,13 @@ func clipshare_init(){
 	err := os.Mkdir(pidfile_path, 777)
 	if err != nil {
 		panic(err)
+		return
 	}
 	pidfile.SetPidfilePath(pidfile_path+ "/" + pidfile_name)
 	err = pidfile.Write()
 	if err != nil {
 		panic(err)
+		return
 	}
 
 	// Listen for external connections parallely
@@ -283,7 +298,7 @@ func main() {
 			args := os.Args[1:]
 			connect_local_sock(args)
 		}else {
-		      fmt.Printf("Usage: clipshare get| set host(s)")
+		      fmt.Printf("Usage: clipshare get | set host(s) | stop ")
 		}
 	}
 }
