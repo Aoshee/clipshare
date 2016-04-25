@@ -1,4 +1,4 @@
-package main
+package clipshare
 
 import (
 	"fmt"
@@ -19,10 +19,11 @@ var (
 	pidfile_name = "clipshare.pid"
 	unix_sock = "/tmp/clipshare_local"
 	port = "8002"
+	buf Buffer
 )
 
 // Handle incoming connection, receive content sent to host
-func handleConnection(conn net.Conn, clip chan string) {
+func handleConnection(conn net.Conn) {
 	// receive the message
 	var text string
 	cli := conn.RemoteAddr()
@@ -34,15 +35,16 @@ func handleConnection(conn net.Conn, clip chan string) {
 		fmt.Println("Received", text)
 
 		// ClipboardUpdate here 
-		clip <- text
-		close(clip)
+		//clip <- text
+		//close(clip)
+		buf.set(text)
 		fmt.Println("Updated Clipboard")
 	}
 	conn.Close()
 }
 
 // Listen for incoming connections to share clip content
-func clipshare_server(clip chan string) {
+func clipshare_server() {
      	fmt.Printf("Listening\n")
 	ln, err := net.Listen("tcp",":"+port)
 	if err != nil {
@@ -53,7 +55,7 @@ func clipshare_server(clip chan string) {
 	    if err != nil {
 	    	// handle error
 	    }
-	    go handleConnection(conn, clip)
+	    go handleConnection(conn)
         }
 }
 

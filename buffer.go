@@ -1,4 +1,4 @@
-package buffer
+package clipshare
 
 /*
 import(
@@ -6,14 +6,16 @@ import(
 )
 */
 
+// todo: change to queue
+
 type Buffer struct {
-    content bytes.Buffer
+    content string
 }
 
 func (*buf Buffer) set(val string){
-     buf.content.Write([]byte(val))
+     buf.content = val
 }
 
 func (*buf Buffer) get() string{
-     return string(buf.content)
+     return buf.content
 }
