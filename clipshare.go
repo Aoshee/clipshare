@@ -10,10 +10,21 @@ import (
         "os/exec"
 	"syscall"
 	"time"
-        "github.com/facebookgo/pidfile"
-	"github.com/mirrorZ/clipshare"
 	"strconv"
+        "github.com/facebookgo/pidfile"
 )
+
+type Buffer struct {
+    content string
+}
+
+func (buf *Buffer) set(val string){
+     buf.content = val
+}
+
+func (buf *Buffer) get() string{
+     return buf.content
+}
 
 var (
 	pidfile_path = "/var/run/clipshare"
