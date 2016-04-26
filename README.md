@@ -31,5 +31,5 @@ clipshare stop
 * Queued Clipshare buffer
 * Daemon mode
 * Security
-* refactor
-  
+* Refactor
+* Platform support for Mac, Windows  
