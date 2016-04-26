@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 	"strconv"
+	"log"
         "github.com/facebookgo/pidfile"
 )
 
@@ -30,6 +31,7 @@ var (
 	pidfile_path = "/var/run/clipshare"
 	pidfile_name = "clipshare.pid"
 	unix_sock = "/tmp/clipshare_local"
+	logfile = "/var/log/clipshare.log"
 	port = "8002"
 	buf Buffer
 )
@@ -39,25 +41,19 @@ func handleConnection(conn net.Conn) {
 	// receive the message
 	var text string
 	cli := conn.RemoteAddr()
-	fmt.Println("Received from", cli.String())
+	log.Println("Received message from", cli.String())
 	err := gob.NewDecoder(conn).Decode(&text)
 	if err != nil {
-		fmt.Println(err)
+	        log.Fatalln(err)
 	} else {
-		fmt.Println("Received", text)
-
-		// ClipboardUpdate here 
-		//clip <- text
-		//close(clip)
 		buf.set(text)
-		fmt.Println("Updated Clipboard")
 	}
 	conn.Close()
 }
 
 // Listen for incoming connections to share clip content
 func clipshare_server() {
-     	fmt.Printf("Listening\n")
+     	log.Println("Receiver Listening")
 	ln, err := net.Listen("tcp",":"+port)
 	if err != nil {
 	// handle error
@@ -77,19 +73,17 @@ func clipshare_client(hosts []string) {
 	var host string
 	for key := range(hosts) {
 	    host = hosts[key] + ":" + port
-	    fmt.Printf("Connecting to host %s\n", host)
+	    log.Println("Connecting to host", host)
 	    c, err := net.Dial("tcp", host)
 	    if err != nil {
-		fmt.Println(err)
+		log.Fatalln(err)
 		return
 	    }
 	    // send the clip_text
 	    text := get_clip_text()
-	    fmt.Println("Sending", text)
-	    fmt.Println("Calling host")
 	    err = gob.NewEncoder(c).Encode(text)
 	    if err != nil {
-	       	fmt.Println(err)
+	       	log.Fatalln(err)
   	    }
 	    // close connection
 	    c.Close()
@@ -99,33 +93,30 @@ func clipshare_client(hosts []string) {
 // Set received text as clipboard content
 // todo:  move this to external package
 func set_clip_text(text string) {
-	// Set clip text here
-	fmt.Println("IN HERE")
 	cmd := exec.Command("xsel", "-b", "-i")
 	cmd_stdin, err := cmd.StdinPipe()
 	if err!= nil {
-	   	panic(err)
+	   	log.Fatalln(err)
 		return
 	}
 
 	_, err = cmd_stdin.Write([]byte(text))
 	if err!= nil {
-	   	panic(err)
+	   	log.Fatalln(err)
 		return
 	}
 
 	err = cmd.Start()
 	if err != nil {
-	       panic(err)
+	       log.Fatalln(err)
 	       return
 	}
 	cmd_stdin.Close()
 	err = cmd.Wait()
 	if err != nil {
-	       panic(err)
+	       log.Fatalln(err)
 	       return
 	}
-	fmt.Println("DONE")
 }
 
 // Get the content of clipboard
@@ -135,9 +126,8 @@ func get_clip_text() string{
 	cmd := exec.Command("xsel", "-b", "-o")
 	out, err := cmd.Output()
 	if err != nil {
-		fmt.Printf("Still output error")
+		log.Fatalln(err)
 	}
-	fmt.Printf("in get_clip_text %s", out)
 	return string(out)
 }
 
@@ -154,16 +144,12 @@ func handleReq(conn *net.UnixConn) {
 	input_str := string(input)
 	input_str = strings.Trim(input, " ")
 	if strings.Contains(input_str, "get") {
-	    fmt.Println("Get clip text")
 	    text := buf.get()
-	    fmt.Printf("Got text %s", text)
-	    fmt.Println("Setting clipboard text")
+	    log.Println("setting clipboard text")
 	    set_clip_text(text)
 	} else if strings.Contains(input_str, "set") {
-	    // todo: accept host here
-	    fmt.Println("Set clip text")
 	    hosts := strings.Fields(input)
-	    fmt.Printf("sending text to hosts %v", hosts[1:])
+	    log.Println("sending text to hosts", hosts[1:])
 	    clipshare_client(hosts[1:])
 	} else if strings.Contains(input, "stop") {
 	    clipshare_destroy()
@@ -226,7 +212,7 @@ func clipshare_destroy(){
 	// get the file size
   	stat, err := file.Stat()
   	if err != nil {
-	       panic(err)
+	       log.Fatalln(err)
     	       return
   	}
 	
@@ -234,52 +220,78 @@ func clipshare_destroy(){
   	bs := make([]byte, stat.Size())
   	_, err = file.Read(bs)
   	if err != nil {
-	       panic(err)
+	       log.Fatalln(err)
 	       return
   	}
 	
 	pid_str := string(bs)
 	pid, err := strconv.ParseInt(pid_str, 10, 64)
-  	fmt.Println("pid:", pid)
 	
 	// remove pid file
 	err = os.RemoveAll(pidfile_path)
 	if err != nil {
-	       panic(err)
+	       log.Fatalln(err)
 	       return
         }
 	// remove unix socket
 	err = os.Remove(unix_sock)
 	if err != nil {
-	       panic(err)
+	       log.Fatalln(err)
 	       return
   	}
 	
 	// kill process
 	err = syscall.Kill(int(pid), 15)
 	if err != nil {
-	       panic(err)
+	       log.Fatalln(err)
 	       return
   	}
 }
 
-// Start clipshare process, remote and local server
-func clipshare_init(){
-	fmt.Printf("Starting Clipshare...")
-
-	// Create directory for clipshare and set path
+func create_pidfile() error{
+     	// Create directory for clipshare and set path
 	err := os.Mkdir(pidfile_path, 777)
 	if err != nil {
-		panic(err)
-		return
+		return err
 	}
 	pidfile.SetPidfilePath(pidfile_path+ "/" + pidfile_name)
 	err = pidfile.Write()
 	if err != nil {
-		panic(err)
-		return
+		return err
+	}
+     	return nil
+}
+
+func enable_logging() error{
+       f, err := os.OpenFile(logfile, os.O_APPEND | os.O_CREATE | os.O_RDWR, 0666)
+       if err != nil {
+               return err
+       }
+       
+       defer f.Close()
+
+       // assign it to the standard logger
+       log.SetOutput(f)
+
+       return nil
+}
+
+// Start clipshare process, remote and local server
+func clipshare_init(){
+	err := enable_logging()
+	if err != nil {
+	        panic(err)
+		return 
 	}
 
+	log.Println("Starting Clipshare...")
+
+	err = create_pidfile()
+	if err != nil {
+	        panic(err)
+		return 
+	} 
+	
 	// Listen for external connections parallely
 	runtime.GOMAXPROCS(2)
 	
@@ -296,26 +308,36 @@ func process_running() bool {
 	name := pidfile_path+ "/" +pidfile_name
 	_, err := os.Stat(name)
 	if os.IsNotExist(err) {
-		fmt.Println("PIDFILE does not exist")
 		return false
 	}else {
-		fmt.Println("PIDFILE does exists")
 		return true
 	}
 }
 
 func main() {
-        // check if process is already running
-	if !process_running() {
-		time.Sleep (5)
-		clipshare_init()
+
+  	if len(os.Args) == 1 {
+	        fmt.Printf("Usage: clipshare start | get | set host(s) | stop ")
 	}else {
-		// if args passed, send to open socket
-		if len(os.Args) > 1 {
-			args := os.Args[1:]
-			connect_local_sock(args)
-		}else {
-		      fmt.Printf("Usage: clipshare get | set host(s) | stop ")
+		args := os.Args[1:]
+	        // check if clipshare is already running
+		if !process_running() {
+		        if args[0] == "start" {
+			   	time.Sleep (5)
+				clipshare_init()
+			}else {
+			      fmt.Println("Clipshare is not running")
+			      fmt.Println("clipshare start to start clipshare")
+			      return
+			}
+		} else {
+		        if args[0] == "start" {
+		                 fmt.Println("Clipshare already running")
+				 return
+		        } else {
+			         // if args passed, send to open socket
+		       	         connect_local_sock(args)
+		        }
 		}
 	}
 }
