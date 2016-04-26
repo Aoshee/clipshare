@@ -1,4 +1,4 @@
-package clipshare
+package main
 
 import (
 	"fmt"
@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
         "github.com/facebookgo/pidfile"
+	"github.com/mirrorZ/clipshare"
 	"strconv"
 )
 
@@ -125,24 +126,24 @@ func get_clip_text() string{
 }
 
 // Handle requests coming to the unix socket for the process
-func handleReq(conn *net.UnixConn, clip chan string) {
-	var buf [1024]byte
-        n, err := conn.Read(buf[:])
+func handleReq(conn *net.UnixConn) {
+	var buff [1024]byte
+        n, err := conn.Read(buff[:])
 	if err != nil {
 		panic(err)
 		return
 	}
-	in := string(buf[:n])
+	input := string(buff[:n])
 	// Check if input is to set or get
-	input := string(in)
-	input = strings.Trim(input, " ")
-	if strings.Contains(input, "get") {
+	input_str := string(input)
+	input_str = strings.Trim(input, " ")
+	if strings.Contains(input_str, "get") {
 	    fmt.Println("Get clip text")
-	    text := <-clip
+	    text := buf.get()
 	    fmt.Printf("Got text %s", text)
 	    fmt.Println("Setting clipboard text")
 	    set_clip_text(text)
-	} else if strings.Contains(input, "set") {
+	} else if strings.Contains(input_str, "set") {
 	    // todo: accept host here
 	    fmt.Println("Set clip text")
 	    hosts := strings.Fields(input)
@@ -157,7 +158,7 @@ func handleReq(conn *net.UnixConn, clip chan string) {
 }
 
 // Listen for connections from other instances of clipshare
-func clipshare_local (clip chan string) {
+func clipshare_local () {
 	// set up unix socket here
 	l, err := net.ListenUnix("unix",  &net.UnixAddr{unix_sock, "unix"})
 	if err != nil {
@@ -171,7 +172,7 @@ func clipshare_local (clip chan string) {
 			panic(err)
 			return
 		}
-		go handleReq(conn, clip)
+		go handleReq(conn)
         }
 }
 
@@ -265,14 +266,12 @@ func clipshare_init(){
 
 	// Listen for external connections parallely
 	runtime.GOMAXPROCS(2)
-
-	clip := make(chan string)
 	
 	// Start listening to receive data from other peers
-	go clipshare_server(clip)
+	go clipshare_server()
 
 	// Listen for local messages
-	clipshare_local(clip)
+	clipshare_local()
 }
 
 // Check for already running process
