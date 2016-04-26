@@ -100,27 +100,32 @@ func clipshare_client(hosts []string) {
 // todo:  move this to external package
 func set_clip_text(text string) {
 	// Set clip text here
+	fmt.Println("IN HERE")
 	cmd := exec.Command("xsel", "-b", "-i")
 	cmd_stdin, err := cmd.StdinPipe()
 	if err!= nil {
 	   	panic(err)
 		return
 	}
+
 	_, err = cmd_stdin.Write([]byte(text))
 	if err!= nil {
 	   	panic(err)
 		return
 	}
+
 	err = cmd.Start()
 	if err != nil {
 	       panic(err)
 	       return
 	}
+	cmd_stdin.Close()
 	err = cmd.Wait()
 	if err != nil {
 	       panic(err)
 	       return
 	}
+	fmt.Println("DONE")
 }
 
 // Get the content of clipboard
